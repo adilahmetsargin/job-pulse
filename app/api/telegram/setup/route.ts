@@ -12,13 +12,24 @@ function resolveBaseUrl(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
-  const baseUrl = resolveBaseUrl(request);
-  const webhookUrl = `${baseUrl}/api/telegram/webhook`;
-  const result = await setTelegramWebhook(webhookUrl);
+  try {
+    const baseUrl = resolveBaseUrl(request);
+    const webhookUrl = `${baseUrl}/api/telegram/webhook`;
+    const result = await setTelegramWebhook(webhookUrl);
 
-  return NextResponse.json({
-    ok: true,
-    webhookUrl,
-    telegram: result,
-  });
+    return NextResponse.json({
+      ok: true,
+      webhookUrl,
+      telegram: result,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown setup error";
+    return NextResponse.json(
+      {
+        ok: false,
+        error: message,
+      },
+      { status: 500 },
+    );
+  }
 }
