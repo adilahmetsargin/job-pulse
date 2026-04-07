@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "TELEGRAM_CHAT_ID missing" }, { status: 500 });
   }
 
-  const result = await fetchJobsFeed({ sinceHours: 24, limit: 100 });
+  const result = await fetchJobsFeed({ sinceHours: 24, limit: 25 });
   const freshJobs = await upsertFetchedJobs(result.jobs);
   const pendingJobs = await getPendingJobs(freshJobs.map((job) => job.id));
 

@@ -16,10 +16,12 @@ export const SEARCH_TERMS = [
   "frontend",
   "typescript",
   "next.js",
-  "javascript engineer",
+  "frontend engineer",
 ];
 
 const REVALIDATE = 300;
+const REQUEST_RETRIES = 2;
+const RETRY_DELAYS_MS = [250, 800];
 
 function smallFetchInit(): RequestInit {
   return {
@@ -36,11 +38,44 @@ function uncachedFetchInit(): RequestInit {
   };
 }
 
-const TECH_TITLE =
-  /react|frontend|typescript|javascript|next\.?\s*js|vue\.?js|\bvue\b|svelte|angular|web\s*(dev|engineer)|ui\s*engineer|full[\s-]?stack|software\s*engineer|developer/i;
+const FRONTEND_TITLE =
+  /\b(frontend|front[-\s]?end|ui engineer|web ui|react|next\.?\s*js|javascript frontend|typescript frontend)\b/i;
+const FRONTEND_STACK_HINT =
+  /\b(react|next\.?\s*js|typescript|javascript|tailwind|css|html|web)\b/i;
+const EXCLUDED_TITLE =
+  /\b(back[\s-]?end|backend|data engineer|data scientist|machine learning|ml engineer|devops|sre|platform engineer|security engineer|mobile engineer|ios|android|qa engineer|test engineer|site reliability|infra(structure)?|full[\s-]?stack)\b/i;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry<T>(url: string, init: RequestInit): Promise<T | null> {
+  for (let attempt = 0; attempt <= REQUEST_RETRIES; attempt += 1) {
+    try {
+      const res = await fetch(url, init);
+      if (!res.ok) {
+        if (res.status >= 500 && attempt < REQUEST_RETRIES) {
+          await sleep(RETRY_DELAYS_MS[attempt] ?? 1000);
+          continue;
+        }
+        return null;
+      }
+      return (await res.json()) as T;
+    } catch {
+      if (attempt >= REQUEST_RETRIES) {
+        return null;
+      }
+      await sleep(RETRY_DELAYS_MS[attempt] ?? 1000);
+    }
+  }
+  return null;
+}
 
 export function matchesDevInterest(title: string): boolean {
-  return TECH_TITLE.test(title);
+  const normalized = title.trim();
+  if (!normalized) return false;
+  if (EXCLUDED_TITLE.test(normalized)) return false;
+  return FRONTEND_TITLE.test(normalized) || FRONTEND_STACK_HINT.test(normalized);
 }
 
 const DEFAULT_GREENHOUSE_BOARDS = [
@@ -66,12 +101,13 @@ export async function fetchAdzuna(appId: string, appKey: string): Promise<JobRow
       url.searchParams.set("app_id", appId);
       url.searchParams.set("app_key", appKey);
       url.searchParams.set("what", what);
-      url.searchParams.set("results_per_page", "20");
-      const res = await fetch(url.toString(), smallFetchInit());
-      if (!res.ok) return [];
-      const data = (await res.json()) as { results?: unknown[] };
+      url.searchParams.set("results_per_page", "10");
+      const data = await fetchJsonWithRetry<{ results?: unknown[] }>(url.toString(), smallFetchInit());
+      if (!data) return [];
       const results = data.results ?? [];
-      return results.map((r) => normalizeAdzuna(r as Parameters<typeof normalizeAdzuna>[0]));
+      return results
+        .map((r) => normalizeAdzuna(r as Parameters<typeof normalizeAdzuna>[0]))
+        .filter((job) => matchesDevInterest(job.title));
     }),
   );
 
@@ -94,9 +130,8 @@ export async function fetchRemotiveBatches(): Promise<JobRow[]> {
   await Promise.all(
     SEARCH_TERMS.map(async (search) => {
       const url = `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(search)}`;
-      const res = await fetch(url, smallFetchInit());
-      if (!res.ok) return;
-      const data = (await res.json()) as { jobs?: RemotiveJob[] };
+      const data = await fetchJsonWithRetry<{ jobs?: RemotiveJob[] }>(url, smallFetchInit());
+      if (!data) return;
       for (const j of data.jobs ?? []) {
         if (seen.has(j.id)) continue;
         seen.add(j.id);
@@ -109,11 +144,10 @@ export async function fetchRemotiveBatches(): Promise<JobRow[]> {
 }
 
 export async function fetchArbeitnowFiltered(): Promise<JobRow[]> {
-  const res = await fetch("https://www.arbeitnow.com/api/job-board-api", smallFetchInit());
-  if (!res.ok) return [];
-  const data = (await res.json()) as {
+  const data = await fetchJsonWithRetry<{
     data?: Array<Parameters<typeof normalizeArbeitnow>[0]>;
-  };
+  }>("https://www.arbeitnow.com/api/job-board-api", smallFetchInit());
+  if (!data) return [];
   const rows = (data.data ?? [])
     .filter((j) => matchesDevInterest(j.title))
     .map(normalizeArbeitnow);
@@ -121,12 +155,11 @@ export async function fetchArbeitnowFiltered(): Promise<JobRow[]> {
 }
 
 export async function fetchJobicyFiltered(): Promise<JobRow[]> {
-  const url = "https://jobicy.com/api/v2/remote-jobs?count=40";
-  const res = await fetch(url, smallFetchInit());
-  if (!res.ok) return [];
-  const data = (await res.json()) as {
+  const url = "https://jobicy.com/api/v2/remote-jobs?count=20";
+  const data = await fetchJsonWithRetry<{
     jobs?: Array<Parameters<typeof normalizeJobicy>[0]>;
-  };
+  }>(url, smallFetchInit());
+  if (!data) return [];
   return (data.jobs ?? [])
     .filter((j) => matchesDevInterest(j.jobTitle))
     .map(normalizeJobicy);
@@ -135,14 +168,13 @@ export async function fetchJobicyFiltered(): Promise<JobRow[]> {
 export async function fetchGreenhouseBoards(boards: string[]): Promise<JobRow[]> {
   const lists = await Promise.all(
     boards.map(async (board) => {
-      const res = await fetch(
+      const data = await fetchJsonWithRetry<{
+        jobs?: Array<Parameters<typeof normalizeGreenhouse>[1]>;
+      }>(
         `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs`,
         smallFetchInit(),
       );
-      if (!res.ok) return [] as JobRow[];
-      const data = (await res.json()) as {
-        jobs?: Array<Parameters<typeof normalizeGreenhouse>[1]>;
-      };
+      if (!data) return [] as JobRow[];
       return (data.jobs ?? [])
         .filter((j) => matchesDevInterest(j.title))
         .map((j) => normalizeGreenhouse(board, j));
@@ -170,12 +202,11 @@ type AshbyBoardResponse = {
 export async function fetchAshbyOrgs(orgs: string[]): Promise<JobRow[]> {
   const lists = await Promise.all(
     orgs.map(async (org) => {
-      const res = await fetch(
+      const data = await fetchJsonWithRetry<AshbyBoardResponse>(
         `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(org)}`,
         uncachedFetchInit(),
       );
-      if (!res.ok) return [] as JobRow[];
-      const data = (await res.json()) as AshbyBoardResponse;
+      if (!data) return [] as JobRow[];
       return (data.jobs ?? [])
         .filter((j) => j.isListed !== false)
         .filter((j) => matchesDevInterest(j.title))
@@ -186,12 +217,11 @@ export async function fetchAshbyOrgs(orgs: string[]): Promise<JobRow[]> {
 }
 
 async function fetchLeverSite(site: string): Promise<JobRow[]> {
-  const res = await fetch(
+  const data = await fetchJsonWithRetry<unknown>(
     `https://api.lever.co/v0/postings/${encodeURIComponent(site)}?limit=100`,
     smallFetchInit(),
   );
-  if (!res.ok) return [];
-  const data: unknown = await res.json();
+  if (!data) return [];
   if (data && typeof data === "object" && "ok" in data && (data as { ok: boolean }).ok === false) {
     return [];
   }

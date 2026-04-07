@@ -46,28 +46,18 @@ export type JobFeedResult = {
 
 export async function fetchJobsFeed(options: JobFeedOptions = {}): Promise<JobFeedResult> {
   const sinceHours = clamp(options.sinceHours ?? 24, 0, 24 * 30);
-  const limit = clamp(options.limit ?? 100, 1, 300);
+  const limit = clamp(options.limit ?? 25, 1, 100);
 
   const appId = process.env.ADZUNA_APP_ID ?? "";
   const appKey = process.env.ADZUNA_APP_KEY ?? "";
 
-  const [
-    adzuna,
-    remotive,
-    arbeitnow,
-    jobicy,
-    greenhouse,
-    ashby,
-    lever,
-  ] = await Promise.all([
-    fetchAdzuna(appId, appKey),
-    fetchRemotiveBatches(),
-    fetchArbeitnowFiltered(),
-    fetchJobicyFiltered(),
-    fetchGreenhouseBoards(greenhouseBoardsFromEnv()),
-    fetchAshbyOrgs(ashbyOrgsFromEnv()),
-    fetchLeverSites(leverSitesFromEnv()),
-  ]);
+  const adzuna = await fetchAdzuna(appId, appKey);
+  const remotive = await fetchRemotiveBatches();
+  const arbeitnow = await fetchArbeitnowFiltered();
+  const jobicy = await fetchJobicyFiltered();
+  const greenhouse = await fetchGreenhouseBoards(greenhouseBoardsFromEnv());
+  const ashby = await fetchAshbyOrgs(ashbyOrgsFromEnv());
+  const lever = await fetchLeverSites(leverSitesFromEnv());
 
   const merged = mergeAndDedupeJobs([
     ...adzuna,
