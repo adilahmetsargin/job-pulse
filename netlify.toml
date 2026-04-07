@@ -1,0 +1,2 @@
+[functions."cron-jobs"]
+schedule = "@hourly"
