@@ -27,7 +27,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [usOnly, setUsOnly] = useState(false);
   const [hideSenior, setHideSenior] = useState(true);
-  /** Varsayılan: son 24 saat + sunucuda sınırlı kayıt — daha az veri */
+  /** Default: last 24 hours + server-side capped results for lighter payloads */
   const [lastDayOnly, setLastDayOnly] = useState(true);
 
   const load = useCallback(async () => {
@@ -47,7 +47,7 @@ export default function Home() {
       const json = (await res.json()) as ApiResponse;
       setData(json);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Yüklenemedi");
+      setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
       setLoading(false);
     }
@@ -74,16 +74,16 @@ export default function Home() {
     <main className="mx-auto max-w-6xl px-4 py-10">
       <header className="mb-8 border-b border-[var(--border)] pb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)]">
-          Frontend / React ilanları
+          Frontend / React Jobs
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-          Kaynaklar:{" "}
+          Sources:{" "}
           <span className="text-[var(--text)]">
             {data?.sources?.length
               ? data.sources.join(", ")
-              : "Adzuna, Remotive, Arbeitnow, Jobicy, Greenhouse, Ashby (+ isteğe bağlı Lever)"}
+              : "Adzuna, Remotive, Arbeitnow, Jobicy, Greenhouse, Ashby (+ optional Lever)"}
           </span>
-          . ATS panoları (Greenhouse / Ashby) ve iş panoları ücretsiz uçlar;{" "}
+          . ATS boards (Greenhouse / Ashby) and public job boards use free endpoints;{" "}
           <a
             href="https://jobicy.com"
             className="text-[var(--accent)] underline-offset-2 hover:underline"
@@ -92,7 +92,7 @@ export default function Home() {
           >
             Jobicy
           </a>{" "}
-          kaynak gösterimi istiyor. Proje:{" "}
+          requires attribution. Project:{" "}
           <code className="rounded bg-[var(--surface)] px-1.5 py-0.5 text-xs">
             clones/us-jobs
           </code>
@@ -100,15 +100,15 @@ export default function Home() {
         </p>
         {data?.fetchedAt && (
           <p className="mt-1 text-xs text-[var(--muted)]">
-            Son çekim: {new Date(data.fetchedAt).toLocaleString("tr-TR")}
+            Last fetch: {new Date(data.fetchedAt).toLocaleString("en-US")}
             {data.meta && (
               <span className="ml-2 opacity-80">
-                (ham birleşik {data.meta.merged ?? "—"}
+                (merged raw {data.meta.merged ?? "—"}
                 {typeof data.meta.afterTimeFilter === "number"
-                  ? ` → süzülmüş ${data.meta.afterTimeFilter}`
+                  ? ` → filtered ${data.meta.afterTimeFilter}`
                   : ""}
-                ; API dönen {data.meta.returned ?? data.jobs.length}/{data.meta.limit ?? "—"}, son{" "}
-                {data.meta.sinceHours === 0 ? "tümü" : `${data.meta.sinceHours} saat`})
+                ; returned by API {data.meta.returned ?? data.jobs.length}/{data.meta.limit ?? "—"}, last{" "}
+                {data.meta.sinceHours === 0 ? "all time" : `${data.meta.sinceHours} hours`})
               </span>
             )}
           </p>
@@ -118,13 +118,13 @@ export default function Home() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="block flex-1 min-w-[200px]">
           <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-            Ara (başlık, şirket, lokasyon)
+            Search (title, company, location)
           </span>
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="react, typescript, next…"
+            placeholder="react, typescript, next..."
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
           />
         </label>
@@ -136,7 +136,7 @@ export default function Home() {
               onChange={(e) => setUsOnly(e.target.checked)}
               className="rounded border-[var(--border)]"
             />
-            US / worldwide friendly lokasyon
+            US / worldwide friendly location
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--text)]">
             <input
@@ -145,7 +145,7 @@ export default function Home() {
               onChange={(e) => setHideSenior(e.target.checked)}
               className="rounded border-[var(--border)]"
             />
-            “Senior” başlıkları gizle
+            Hide &quot;Senior&quot; titles
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--text)]">
             <input
@@ -154,7 +154,7 @@ export default function Home() {
               onChange={(e) => setLastDayOnly(e.target.checked)}
               className="rounded border-[var(--border)]"
             />
-            Son 24 saatte yayınlananlar (sunucu filtresi)
+            Posted in the last 24 hours (server filter)
           </label>
         </div>
         <button
@@ -163,7 +163,7 @@ export default function Home() {
           disabled={loading}
           className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)] hover:border-[var(--accent)] disabled:opacity-50"
         >
-          {loading ? "Yükleniyor…" : "Yenile"}
+          {loading ? "Loading..." : "Refresh"}
         </button>
       </div>
 
@@ -176,19 +176,19 @@ export default function Home() {
       <p className="mb-3 text-sm text-[var(--muted)]">
         {loading
           ? "…"
-          : `${filtered.length} ilan (ek filtrelere göre; API’den gelen ${data?.jobs.length ?? 0})`}
+          : `${filtered.length} jobs (after local filters; ${data?.jobs.length ?? 0} from API)`}
       </p>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)]">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wide text-[var(--muted)]">
-              <th className="px-3 py-3 font-medium">Başlık</th>
-              <th className="px-3 py-3 font-medium">Şirket</th>
-              <th className="px-3 py-3 font-medium">Kaynak</th>
-              <th className="px-3 py-3 font-medium">Lokasyon</th>
-              <th className="px-3 py-3 font-medium">Tür</th>
-              <th className="px-3 py-3 font-medium">Tarih</th>
+              <th className="px-3 py-3 font-medium">Title</th>
+              <th className="px-3 py-3 font-medium">Company</th>
+              <th className="px-3 py-3 font-medium">Source</th>
+              <th className="px-3 py-3 font-medium">Location</th>
+              <th className="px-3 py-3 font-medium">Type</th>
+              <th className="px-3 py-3 font-medium">Date</th>
             </tr>
           </thead>
           <tbody>
@@ -226,7 +226,7 @@ export default function Home() {
           </tbody>
         </table>
         {!loading && filtered.length === 0 && (
-          <p className="px-3 py-8 text-center text-[var(--muted)]">Sonuç yok — filtreyi gevşet veya yenile.</p>
+          <p className="px-3 py-8 text-center text-[var(--muted)]">No results. Relax the filters or refresh.</p>
         )}
       </div>
     </main>

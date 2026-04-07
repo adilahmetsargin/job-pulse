@@ -50,25 +50,25 @@ function jobReplyMarkup(job: JobRow): TelegramReplyMarkup {
   return {
     inline_keyboard: [
       [
-        { text: "Aciklama", callback_data: `detail:${job.id}` },
-        { text: "Reddet", callback_data: `dismiss:${job.id}` },
+        { text: "Details", callback_data: `detail:${job.id}` },
+        { text: "Dismiss", callback_data: `dismiss:${job.id}` },
       ],
-      [{ text: "Basvur", url: job.url }],
+      [{ text: "Apply", url: job.url }],
     ],
   };
 }
 
 export function formatJobMessage(job: JobRow): string {
-  const published = job.published ? job.published.slice(0, 19).replace("T", " ") : "Bilinmiyor";
+  const published = job.published ? job.published.slice(0, 19).replace("T", " ") : "Unknown";
   return [
-    "<b>Yeni ilan bulundu</b>",
+    "<b>New job found</b>",
     "",
     `<b>${escapeHtml(job.title)}</b>`,
     `${escapeHtml(job.company)} • ${escapeHtml(job.location)}`,
-    `Kaynak: ${escapeHtml(job.source)}`,
-    `Tur: ${escapeHtml(job.jobType || "—")}`,
-    `Kategori: ${escapeHtml(job.category || "—")}`,
-    `Tarih: ${escapeHtml(published)}`,
+    `Source: ${escapeHtml(job.source)}`,
+    `Type: ${escapeHtml(job.jobType || "—")}`,
+    `Category: ${escapeHtml(job.category || "—")}`,
+    `Date: ${escapeHtml(published)}`,
   ].join("\n");
 }
 
@@ -76,15 +76,15 @@ export function formatJobDetail(job: JobRow): string {
   return [
     `<b>${escapeHtml(job.title)}</b>`,
     "",
-    `Sirket: ${escapeHtml(job.company)}`,
-    `Lokasyon: ${escapeHtml(job.location)}`,
-    `Kaynak: ${escapeHtml(job.source)}`,
-    `Tur: ${escapeHtml(job.jobType || "—")}`,
-    `Kategori: ${escapeHtml(job.category || "—")}`,
-    `Yayin: ${escapeHtml(job.published || "Bilinmiyor")}`,
+    `Company: ${escapeHtml(job.company)}`,
+    `Location: ${escapeHtml(job.location)}`,
+    `Source: ${escapeHtml(job.source)}`,
+    `Type: ${escapeHtml(job.jobType || "—")}`,
+    `Category: ${escapeHtml(job.category || "—")}`,
+    `Published: ${escapeHtml(job.published || "Unknown")}`,
     "",
-    "Not: Bu kaynaklarin buyuk kismi liste API'sinde tam aciklama donmuyor.",
-    "Basvur butonu seni dogrudan ilanin sayfasina goturur.",
+    "Note: Most list APIs do not return the full job description.",
+    "The Apply button takes you directly to the original job post.",
   ].join("\n");
 }
 

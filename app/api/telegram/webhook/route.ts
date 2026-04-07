@@ -34,28 +34,28 @@ export async function POST(request: Request) {
   const chatId = callback.message?.chat?.id;
 
   if (!jobId || !chatId) {
-    await answerCallbackQuery(callback.id, "Gecerli ilan bulunamadi.");
+    await answerCallbackQuery(callback.id, "Valid job not found.");
     return NextResponse.json({ ok: true });
   }
 
   if (action === "detail") {
     const job = await getTrackedJob(jobId);
     if (!job) {
-      await answerCallbackQuery(callback.id, "Ilan artik mevcut degil.");
+      await answerCallbackQuery(callback.id, "This job is no longer available.");
       return NextResponse.json({ ok: true });
     }
 
-    await answerCallbackQuery(callback.id, "Ilan ozeti gonderildi.");
+    await answerCallbackQuery(callback.id, "Job summary sent.");
     await sendTextMessage(String(chatId), formatJobDetail(job));
     return NextResponse.json({ ok: true });
   }
 
   if (action === "dismiss") {
     const dismissed = await dismissJob(jobId);
-    await answerCallbackQuery(callback.id, dismissed ? "Ilan reddedildi." : "Ilan bulunamadi.");
+    await answerCallbackQuery(callback.id, dismissed ? "Job dismissed." : "Job not found.");
     return NextResponse.json({ ok: true });
   }
 
-  await answerCallbackQuery(callback.id, "Bilinmeyen islem.");
+  await answerCallbackQuery(callback.id, "Unknown action.");
   return NextResponse.json({ ok: true });
 }

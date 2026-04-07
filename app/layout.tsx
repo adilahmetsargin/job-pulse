@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "US-friendly frontend ilanları",
-  description: "Remote teknoloji ilanları (Remotive) — React / frontend odaklı filtre",
+  title: "US-Friendly Frontend Jobs",
+  description: "Remote frontend job feed focused on React and modern web roles",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen font-sans antialiased`}
       >
